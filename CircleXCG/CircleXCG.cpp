@@ -22,7 +22,154 @@
 #include "CommandInterpreter.h"
 #include "PictureBox.h"
 
+#ifdef USE_X68000
+#include "mouse.h"
+#endif
+
 PictureBox picturebox; // PictureBoxのインスタンス
+
+typedef struct {
+    int x;
+    int y;
+    bool bl;
+    bool br;
+} MouseState;
+
+#ifndef USE_X68000
+void get_mouse_state(MouseState* state)
+{
+    POINT pt; // マウス座標を格納する構造体
+    if (GetCursorPos(&pt)) {
+        state->x = pt.x;
+        state->y = pt.y;
+    }
+    else {
+        state->x = -1;
+        state->y = -1;
+    }
+
+    // マウスボタンの状態を取得
+    state->bl = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    state->br = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+}
+#else
+// マウスの状態を取得する関数
+void get_mouse_state(MouseState* state)
+{
+    int x, y, x2, y2, bl, br;
+
+    mspos(&x, &y);
+    msstat(&x2, &y2, &bl, &br);
+
+    state->x = x;
+    state->y = y;
+    state->bl = bl != 0;
+    state->br = br != 0;
+}
+#endif
+
+#ifndef USE_X68000
+bool window_init(HWND& hwnd) {
+    // コンソールアプリだけどウィンドウを作る！
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+    const wchar_t CLASS_NAME[] = L"MyMouseWindow";
+
+    // ウィンドウクラスの登録
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = CLASS_NAME;
+
+    RegisterClass(&wc);
+
+    // ウィンドウを作成
+    hwnd = CreateWindowEx(
+        0,
+        CLASS_NAME,
+        L"マウスボタンテスト",
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
+        NULL, NULL, hInstance, NULL);
+
+    if (hwnd == NULL) {
+        MessageBox(NULL, L"ウィンドウの作成に失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    ShowWindow(hwnd, SW_SHOW);
+
+    return true;
+}
+
+bool window_or_mouse_init(HWND& hwnd) {
+    // ウィンドウを初期化
+    //return window_init(hwnd);
+    return true;
+}
+#else
+typedef int HWND; // X68000ではウィンドウは不要なのでダミー定義
+bool window_or_mouse_init(HWND& hwnd) {
+    mouse_init();
+    return true; // X68000ではウィンドウは不要なので常に成功
+}
+#endif
+
+void run() {
+    MouseState state;
+
+    HWND hwnd;
+    if (!window_or_mouse_init(hwnd)) {
+        // ウィンドウの初期化に失敗した場合は終了
+        return;
+    }
+
+    while (true) {
+#ifndef USE_X68000
+        MSG msg;
+        // メッセージがあれば処理
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                return;
+            }
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+#endif
+
+        get_mouse_state(&state);
+
+        //std::stringstream ss;
+        //ss << "Position: (" << state.x << ", " << state.y << ") ";
+        //ss << "Buttons: Left: " << (state.bl ? "ON" : "OFF")
+        //    << " | Right: " << (state.br ? "ON" : "OFF");
+        //printf("\r%s  ", ss.str().c_str());
+        printf("\rPosition: (%d, %d) ", state.x, state.y);
+        printf("Buttons: Left: %s | Right: %s", (state.bl ? "ON" : "OFF"), (state.br ? "ON" : "OFF"));
+        fflush(stdout);
+
+        if (state.bl) {
+            picturebox.MouseDown(hwnd, state.x, state.y);
+        }
+
+#ifndef USE_X68000
+        // CPU負荷を減らすために少し待つ
+        Sleep(50);
+#else
+        // キー入力をチェックして終了
+        int key = 0;
+        keysns(&key);
+
+        if (key)
+            break;
+#endif
+    }
+
+#ifdef USE_X68000
+    // キー読み捨て
+    getchar();
+#endif
+}
+
 
 void paint(HWND hwnd) {
 	picturebox.Paint(hwnd);
@@ -56,6 +203,7 @@ bool exec_command(int token_count, char** tokens, ConOutput& co_cout, ConOutput&
         co_cout << "Result: " << result << co_endl;
     }
     else if (strcmp(result.command, "run") == 0 && token_count == 1) {
+        run();
     }
     return true;
 }

@@ -262,8 +262,14 @@ public:
         long ox = w / 2;
         long oy = h / 2;
         double csize = (ox < oy) ? ox * 0.8 : oy * 0.8;
+        //printf("\nx=%d y=%d w=%d h=%d ox=%d oy=%d csize=%f\n", x, y, w, h, ox, oy, csize);
+
+#ifdef USE_X68000
+        x = ox + (x - ox) * 1.5;
+#endif
 
         double r = sqrt((x - ox) * (x - ox) + (y - oy) * (y - oy));
+        //printf("x=%d r=%f\n", x, r);
         if (fabs(r - csize) < 10) {
             flist.AddPoint((x - ox) / r, -(y - oy) / r);
             text = std::to_wstring(getarea());
