@@ -75,9 +75,9 @@ public:
         // w’è‚³‚ê‚½ŒÂ”‚É•ªŠ„
         std::vector<ClassFigure> add_list;
         for (int i = 0; i < list.size(); i++) {
-			double a = atan2(list[i].y, list[i].x);
+			double b = atan2(list[i].y, list[i].x);
 			int j = (i + 1) % list.size();
-            double b = atan2(list[j].y, list[j].x);
+            double a = atan2(list[j].y, list[j].x);
 			if (b <= a) {
 				b += 2 * 3.14159265358979323846; // Šp“x‚ğ³‹K‰»
 			}
@@ -92,4 +92,30 @@ public:
             AddPoint(e.x, e.y);
 		}
     }
+ //   double rad_to_deg(double rad) {
+ //       return rad * 180.0 / 3.14159265358979323846;
+	//}
+ //   void Divide(int n, ConOutput& co_cout) {
+ //       // w’è‚³‚ê‚½ŒÂ”‚É•ªŠ„
+ //       std::vector<ClassFigure> add_list;
+ //       for (int i = 0; i < list.size(); i++) {
+ //           double b = atan2(list[i].y, list[i].x);
+ //           int j = (i + 1) % list.size();
+ //           double a = atan2(list[j].y, list[j].x);
+ //           co_cout << "Divide " << rad_to_deg(a) << ", " << rad_to_deg(b) << co_endl;
+ //           if (b <= a) {
+ //               b += 2 * 3.14159265358979323846; // Šp“x‚ğ³‹K‰»
+ //           }
+ //           for (int k = 1; k < n; k++) {
+ //               double angle = a + (b - a) * k / n;
+ //               co_cout << rad_to_deg(angle) << co_endl;
+ //               double x = cos(angle);
+ //               double y = sin(angle);
+ //               add_list.push_back(ClassFigure{ x, y });
+ //           }
+ //       }
+ //       for (const auto& e : add_list) {
+ //           AddPoint(e.x, e.y);
+ //       }
+ //   }
 };

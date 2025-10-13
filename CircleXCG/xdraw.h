@@ -5,7 +5,7 @@
 // インラインアセンブラで使うためのグローバル変数の定義
 #define MAX_DRAW_TEXT 1024 // 最大文字列長
 #define MAX_XARGS 8 // 最大引数数
-int16_t g_color;
+int32_t g_color;
 int32_t g_x1, g_y1, g_x2, g_y2, g_x3, g_y3, g_w, g_h, g_w2, g_rx, g_ry;
 int32_t g_start_angle, g_sweep_angle;
 int32_t g_r, g_hbyw, g_end_angle, g_sc1, g_sc2, g_sc3, g_sc4, g_page;
@@ -272,6 +272,7 @@ void drawlinex(int x1, int y1, int x2, int y2, COLORREF color)
 	g_xargs[2] = x2;
 	g_xargs[3] = y2;
 	g_xargs[4] = color;
+    g_xargs[5] = 0xffff;
     asm(
         "move.l #0xb8, %%d0\n\t"   // _LINE
         "lea    g_xargs, %%a1\n\t" // a1 = [x1, y1, x2, y2, color, style]
@@ -296,58 +297,19 @@ void drawbox(uint16_t* data)
 }
 void drawboxx(int x1, int y1, int w, int h, COLORREF color)
 {
+    g_xargs[0] = x1;
+    g_xargs[1] = y1;
+    g_xargs[2] = x1 + w;
+    g_xargs[3] = y1 + h;
+    g_xargs[4] = color;
+    g_xargs[5] = 0xffff;
     asm(
-        "move.l   %0, %%d1\n\t"
-        "move.l   %1, %%d2\n\t"
-        "move.l   %2, %%d3\n\t"
-        "move.l   %3, %%d4\n\t"
-        "move.l   %4, %%d5\n\t"
-        "clr.l	  -(%%sp)\n\t"
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
-        "move.l   %%d0, (%%sp)\n\t"
-
-        "movea.l  %%d1, %%a0\n\t"
-        "adda.l   %%d1, %%a0\n\t"  // a0 = x1 * 2
-        "moveq.l  #10, %%d0\n\t"
-        "add.l    g_gsize, %%d0\n\t"
-        "lsl.l    %%d0, %%d2\n\t"  // d2 = y1 * (1024 << g_gsize)
-        "adda.l   %%d2, %%a0\n\t"  // a0 = x1 * 2 + y1 * (1024 << g_gsize)
-        "adda.l   g_gaddr, %%a0\n\t" // a0 = g_gaddr + x1 * 2 + y1 * (1024 << g_gsize)
-        "move.l   %%a0, %%a1\n\t"
-
-        "move.l   %%a0, -(%%sp)\n\t"
-
-        "move.l   %%d4, %%d2\n\t"
-        "lsl.l    %%d0, %%d2\n\t"  // d2 = h * (1024 << g_gsize)
-        "adda.l   %%d2, %%a1\n\t"  // a1 = x1 * 2 + (y1 + h) * (1024 << g_gsize)
-
-        "move.l   %%d3, %%d6\n\t"  // d6 = w (x方向のカウンター)
-        "boxxxlp:\n\t"
-        "move.w   %%d5, (%%a0)+\n\t"
-        "move.w   %%d5, (%%a1)+\n\t"
-        "dbra     %%d6, boxxxlp\n\t" // x方向のループ
-
-        "move.l   (%%sp)+, %%a0\n\t" // a0 = g_gaddr + x1 * 2 + y1 * (1024 << g_gsize)
-        "move.l   %%a0, %%a1\n\t"
-        "adda.l   %%d3, %%a1\n\t"
-        "adda.l   %%d3, %%a1\n\t"  // a1 = g_gaddr + (x1 + w) * 2 + y1 * (1024 << g_gsize)
-
-        "moveq.l  #1, %%d2\n\t"
-        "lsl.l    %%d0, %%d2\n\t"  // d2 = (1024 << g_gsize) (y方向の差分)
-
-        "move.l   %%d4, %%d7\n\t"  // d7 = h (y方向のカウンター)
-        "boxxylp:\n\t"
-        "move.w   %%d5, (%%a0)\n\t"
-        "adda.l   %%d2, %%a0\n\t"
-        "move.w   %%d5, (%%a1)\n\t"
-        "adda.l   %%d2, %%a1\n\t"
-        "dbra     %%d7, boxxylp\n\t" // y方向のループ
-
-        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
-        "addq.l   #4,%%sp\n\t"
+        "move.l #0xb9, %%d0\n\t" // _BOX
+        "lea    g_xargs, %%a1\n\t" // a1 = [x1, y1, x2, y2, color, style]
+        "trap   #15\n\t"
         :
-    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
-        : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "a0", "a1" // 使用するレジスタ
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
         );
 }
 // グラフィック画面の長方形を塗りつぶす
@@ -437,6 +399,23 @@ void paint(PaintStruct* data)
         : "d0", "a1"             // 使用するレジスタ
         );
 }
+char paint_work[512 * 2]; // ペイント用の作業領域
+void paintx(int x, int y, int color)
+{
+    g_paint.x = x;
+    g_paint.y = y;
+    g_paint.color = color;
+    g_paint.start_work = paint_work;
+    g_paint.end_work = paint_work + sizeof paint_work;
+    asm(
+        "move.l #0xbc, %%d0\n\t" // _PAINT
+        "lea    g_paint, %%a1\n\t"    // a1 = [x, y, color, start_work, end_work]
+        "trap   #15\n\t"
+        :
+    :                        // 入力
+        : "d0", "a1"             // 使用するレジスタ
+        );
+}
 // グラフィック画面に文字列を表示する
 void drawstring(DrawStringStruct* data)
 {
@@ -505,18 +484,45 @@ void drawroundedrectanglex(int x1, int y1, int w, int h, int rx, int ry, COLORRE
     drawarcx(x1 + w - dx, y1 + h - dy, dx, dy, 0, 90, color);
 }
 void drawellipsex(int x1, int y1, int w, int h, COLORREF color) {
-    //printf("drawellipsex: x1=%d, y1=%d, w=%d, h=%d, color=%06X\n", x1, y1, w, h, color);
     drawarcx(x1, y1, w, h, 0, 360, color);
 }
 
+//void fillellipsex(int x1, int y1, int w, int h, COLORREF color) {
+//    asm(
+//        "move.l   %0, g_x1\n\t"
+//        "move.l   %1, g_y1\n\t"
+//        "move.l   %2, g_w\n\t"
+//        "move.l   %3, g_h\n\t"
+//        "move.l   %4, g_color\n\t"
+//
+//        "clr.l	  -(%%sp)\n\t"
+//        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
+//        "move.l   %%d0, (%%sp)\n\t"
+//
+//        "move.l   g_color, -(%%sp)\n\t"
+//        "move.l   g_h, -(%%sp)\n\t"
+//        "move.l   g_w, -(%%sp)\n\t"
+//        "move.l   g_y1, -(%%sp)\n\t"
+//        "move.l   g_x1, -(%%sp)\n\t"
+//        "move.l   #0, -(%%sp)\n\t"
+//        //"jsr      fillellipsex_a\n\t"
+//        "jsr      fillellipse_asm\n\t"
+//        "add.l    #24,%%sp\n\t"
+//
+//        "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
+//        "addq.l   #4, %%sp\n\t"
+//        :                        // 出力
+//    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
+//        : "d0"                   // 使用するレジスタ
+//        );
+//}
 void fillellipsex(int x1, int y1, int w, int h, COLORREF color) {
+	g_x1 = x1;
+	g_y1 = y1;
+	g_w = w;
+	g_h = h;
+	g_color = color;
     asm(
-        "move.l   %0, g_x1\n\t"
-        "move.l   %1, g_y1\n\t"
-        "move.l   %2, g_w\n\t"
-        "move.l   %3, g_h\n\t"
-        "move.l   %4, g_color\n\t"
-
         "clr.l	  -(%%sp)\n\t"
         "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードへ)
         "move.l   %%d0, (%%sp)\n\t"
@@ -527,14 +533,13 @@ void fillellipsex(int x1, int y1, int w, int h, COLORREF color) {
         "move.l   g_y1, -(%%sp)\n\t"
         "move.l   g_x1, -(%%sp)\n\t"
         "move.l   #0, -(%%sp)\n\t"
-        //"jsr      fillellipsex_a\n\t"
         "jsr      fillellipse_asm\n\t"
         "add.l    #24,%%sp\n\t"
 
         "dc.w	  0xff20\n\t"      // _SUPER (スーパーバイザーモードから戻る)
         "addq.l   #4, %%sp\n\t"
         :                        // 出力
-    : "r"(x1), "r"(y1), "r"(w), "r"(h), "r"(color) // 入力
+        :                        // 入力
         : "d0"                   // 使用するレジスタ
         );
 }

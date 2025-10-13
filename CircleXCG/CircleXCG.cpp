@@ -44,11 +44,14 @@ bool exec_command(int token_count, char** tokens, ConOutput& co_cout, ConOutput&
     }
     if (strcmp(result.command, "add") == 0 && token_count == 2) {
         picturebox.AddByDeg(hDrawWindow, std::stoi(tokens[1]));
+        //picturebox.print(co_cout);
         std::string result = std::to_string(picturebox.getarea());
         co_cout << "Result: " << result << co_endl;
     }
     else if (strcmp(result.command, "div") == 0 && token_count == 2) {
+        //picturebox.Divide(hDrawWindow, std::stoi(tokens[1]), co_cout);
         picturebox.Divide(hDrawWindow, std::stoi(tokens[1]));
+        //picturebox.print(co_cout);
         std::string result = std::to_string(picturebox.getarea());
         co_cout << "Result: " << result << co_endl;
     }

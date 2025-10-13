@@ -11,27 +11,79 @@
 class PictureBox
 {
 private:
-    int p_r = 2;
+    int p_r = 3;
     ClassFigureList flist;
     std::wstring text;
+    int circle_color = 9;
+    int point_color = 7;
+    int polygon_color = 11;
+
+    COLORREF xpalette_to_rgb(int c) {
+        switch (c) {
+        case 0: return RGB(0, 0, 0);       // 黒
+        case 2: return RGB(0, 0, 128);     // 青
+        case 8: return RGB(0, 128, 0);     // 緑
+        case 10: return RGB(0, 128, 128);  // 水色
+        case 4: return RGB(128, 0, 0);     // 赤
+        case 6: return RGB(128, 0, 128);   // 紫
+        case 12: return RGB(128, 128, 0);  // 黄
+        case 14: return RGB(192, 192, 192);// 白
+        case 1: return RGB(128, 128, 128); // 灰色
+        case 3: return RGB(0, 0, 255);     // 明るい青
+        case 9: return RGB(0, 255, 0);     // 明るい緑
+        case 11: return RGB(0, 255, 255);  // 明るい水色
+        case 5: return RGB(255, 0, 0);     // 明るい赤
+        case 7: return RGB(255, 0, 255);   // 明るい紫
+        case 13: return RGB(255, 255, 0);  // 明るい黄
+        case 15: return RGB(255, 255, 255);// 明るい白
+        default: return RGB(0, 0, 0);      // 黒（デフォルト）
+        }
+	}
 
 public:
     void Line(HDC hdc, double sx, double sy, double ex, double ey) {
         // 直線の描画
 #ifdef USE_X68000
-        drawlinex((int)sx, (int)sy, (int)ex, (int)ey, 1);
+        drawlinex((int)sx, (int)sy, (int)ex, (int)ey, polygon_color);
 #else
-        MoveToEx(hdc, sx, sy, NULL);
-        LineTo(hdc, ex, ey);
+        //HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(polygon_color));
+        //HGDIOBJ hOldPen = SelectObject(hdc, hPen);
+        //MoveToEx(hdc, sx, sy, NULL);
+        //LineTo(hdc, ex, ey);
+        //SelectObject(hdc, hOldPen);
+        //DeleteObject(hPen);
 #endif
     }
 
     void Circle(HDC hdc, double x, double y, double r) {
-		//printf("Circle: x=%f, y=%f, r=%f\n", x, y, r);
 #ifdef USE_X68000
-        drawellipsex((int)(x - r), (int)(y - r), (int)(r * 2), (int)(r * 2), 2);
+        // X68000 で円になるように補正
+        double rx = r / 1.5;
+        drawellipsex((int)(x - rx), (int)(y - r), (int)(rx * 2), (int)(r * 2), circle_color);
 #else
+        HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(circle_color));
+        HGDIOBJ hOldPen = SelectObject(hdc, hPen);
         Ellipse(hdc, x - r, y - r, x + r, y + r);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+#endif
+    }
+
+    void DrawPoint(HDC hdc, double x, double y, double r) {
+#ifdef USE_X68000
+        // X68000 で円になるように補正
+        double rx = r / 1.5;
+        fillellipsex((int)(x - rx), (int)(y - r), (int)(rx * 2), (int)(r * 2), point_color);
+#else
+        HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(point_color));
+        HGDIOBJ hOldPen = SelectObject(hdc, hPen);
+        HBRUSH hBrush = CreateSolidBrush(xpalette_to_rgb(point_color));
+        HGDIOBJ hOldBrush = SelectObject(hdc, hBrush);
+        Ellipse(hdc, x - r, y - r, x + r, y + r);
+        SelectObject(hdc, hOldBrush);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hBrush);
+        DeleteObject(hPen);
 #endif
     }
 
@@ -41,11 +93,32 @@ public:
         GetClientRect(hWnd, &rect);
 
 #ifdef USE_X68000
-        //wipe();
-        fillboxx((int)(rect.left), (int)(rect.top), (int)(rect.right - rect.left), (int)(rect.bottom - rect.top), 3);
-        //fillboxx((int)(rect.left), (int)(rect.top), (int)((rect.right - rect.left) / 2), (int)((rect.bottom - rect.top) / 2), 4);
+        wipe();
+        //fillboxx((int)(rect.left), (int)(rect.top), (int)(rect.right - rect.left), (int)(rect.bottom - rect.top), 8);
 #else
         Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
+#endif
+    }
+
+    void FillPolygon(HDC hdc, POINT* pts, int count) {
+        // 直線の描画
+#ifdef USE_X68000
+		if (count < 3) return;
+        // 三角形の重心を求める
+        int n = count / 3;
+        int x = (pts[0].x + pts[n].x + pts[n * 2].x) / 3;
+		int y = (pts[0].y + pts[n].y + pts[n * 2].y) / 3;
+		paintx(x, y, polygon_color);
+#else
+        HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(polygon_color));
+        HGDIOBJ hOldPen = SelectObject(hdc, hPen);
+        HBRUSH hBrush = CreateSolidBrush(xpalette_to_rgb(polygon_color));
+        HGDIOBJ hOldBrush = SelectObject(hdc, hBrush);
+        Polygon(hdc, pts, count);
+        SelectObject(hdc, hOldBrush);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hBrush);
+        DeleteObject(hPen);
 #endif
     }
 
@@ -62,7 +135,12 @@ public:
         long ox = w / 2;
         long oy = h / 2;
         double csize = (ox < oy) ? ox * 0.8 : oy * 0.8;
-		//printf("w=%d, h=%d, ox=%d, oy=%d, csize=%f\n", w, h, ox, oy, csize);
+#ifdef USE_X68000
+		double xsize = csize / 1.5;
+#else
+		double xsize = csize;
+#endif
+		double ysize = csize;
 
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
@@ -82,28 +160,42 @@ public:
         Circle(hdc, ox, oy, csize);
 
         int cnt = flist.GetCount();
+		POINT* pts = new POINT[cnt];
         for (int i = 0; i < cnt; i++) {
             double x1 = flist.getX(i);
             double y1 = flist.getY(i);
-            double cx1 = x1 * csize;
-            double cy1 = y1 * csize;
+            double cx1 = x1 * xsize;
+            double cy1 = y1 * ysize;
 
-            Circle(hdc, ox + cx1, oy - cy1, p_r);
+            pts[i].x = (LONG)(ox + cx1);
+            pts[i].y = (LONG)(oy - cy1);
 
             if (i + 1 < cnt) {
                 double x2 = flist.getX(i + 1);
                 double y2 = flist.getY(i + 1);
-                double cx2 = x2 * csize;
-                double cy2 = y2 * csize;
+                double cx2 = x2 * xsize;
+                double cy2 = y2 * ysize;
                 Line(hdc, ox + cx1, oy - cy1, ox + cx2, oy - cy2);
             }
             else if (cnt >= 3) {
                 double x2 = flist.getX(0);
                 double y2 = flist.getY(0);
-                double cx2 = x2 * csize;
-                double cy2 = y2 * csize;
+                double cx2 = x2 * xsize;
+                double cy2 = y2 * ysize;
                 Line(hdc, ox + cx1, oy - cy1, ox + cx2, oy - cy2);
             }
+        }
+
+		FillPolygon(hdc, pts, cnt);
+		delete[] pts;
+
+        for (int i = 0; i < cnt; i++) {
+            double x1 = flist.getX(i);
+            double y1 = flist.getY(i);
+            double cx1 = x1 * xsize;
+            double cy1 = y1 * ysize;
+
+            DrawPoint(hdc, ox + cx1, oy - cy1, p_r);
         }
 
         // テキストの描画
@@ -141,6 +233,15 @@ public:
         }
         return a;
     }
+
+   // void print(ConOutput& co_cout) {
+   //     int cnt = flist.GetCount();
+   //     for (int i = 0; i < cnt; i++) {
+   //         double x1 = flist.getX(i);
+   //         double y1 = flist.getY(i);
+			//co_cout << i << " = (" << x1 << ", " << y1 << ")" << co_endl;
+   //     }
+   // }
 
 #ifdef USE_X68000
     void InvalidateRect(HWND hWnd, const RECT* lpRect, BOOL bErase) {
@@ -186,5 +287,11 @@ public:
         text = std::to_wstring(getarea());
         InvalidateRect(hWnd, NULL, TRUE);
     }
+    //void Divide(HWND hWnd, int n, ConOutput& co_cout) {
+    //    // 指定された個数に分割
+    //    flist.Divide(n, co_cout);
+    //    text = std::to_wstring(getarea());
+    //    InvalidateRect(hWnd, NULL, TRUE);
+    //}
 };
 
