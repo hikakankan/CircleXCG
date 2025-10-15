@@ -73,41 +73,8 @@ void get_mouse_state(MouseState* state)
 #endif
 
 #ifndef USE_X68000
-//bool window_init(HWND& hwnd) {
-//    // コンソールアプリだけどウィンドウを作る！
-//    HINSTANCE hInstance = GetModuleHandle(NULL);
-//    const wchar_t CLASS_NAME[] = L"MyMouseWindow";
-//
-//    // ウィンドウクラスの登録
-//    WNDCLASS wc = {};
-//    wc.lpfnWndProc = WndProc;
-//    wc.hInstance = hInstance;
-//    wc.lpszClassName = CLASS_NAME;
-//
-//    RegisterClass(&wc);
-//
-//    // ウィンドウを作成
-//    hwnd = CreateWindowEx(
-//        0,
-//        CLASS_NAME,
-//        L"マウスボタンテスト",
-//        WS_OVERLAPPEDWINDOW,
-//        CW_USEDEFAULT, CW_USEDEFAULT, 400, 300,
-//        NULL, NULL, hInstance, NULL);
-//
-//    if (hwnd == NULL) {
-//        MessageBox(NULL, L"ウィンドウの作成に失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
-//        return false;
-//    }
-//
-//    ShowWindow(hwnd, SW_SHOW);
-//
-//    return true;
-//}
-
 bool window_or_mouse_init(HWND& hwnd) {
     // ウィンドウを初期化
-    //return window_init(hwnd);
     return true;
 }
 #else
@@ -121,7 +88,6 @@ bool window_or_mouse_init(HWND& hwnd) {
 bool is_key_pressed() {
 #ifndef USE_X68000
     return _kbhit();
-    //return GetKeyState('q');
 #else
     int key = 0;
     keysns(&key);
@@ -135,7 +101,6 @@ int key_input() {
         return _getch(); // キー入力を取得
     }
     return 0; // 入力がない場合は0を返す
-    //return GetKeyState('q');
 #else
     int key = 0;
     keyinp(&key); // IOCSコールでキー入力を取得
@@ -144,8 +109,7 @@ int key_input() {
 }
 
 void run(ConOutput& co_cout) {
-	//co_cout << "Mouse Input Mode. Click inside the drawing area. Press 'q' to quit." << co_endl;
-    co_cout << "Mouse Input Mode. Click inside the drawing area. Click outof click area to quit." << co_endl;
+    co_cout << "Mouse Input Mode. Click inside the drawing area. Click out of click area to quit." << co_endl;
 
     MouseState state;
 
@@ -171,19 +135,12 @@ void run(ConOutput& co_cout) {
         get_mouse_state(&state);
 
         if (state.bl) {
-			//co_cout << "Left Button: (" << state.x << ", " << state.y << ")" << co_endl;
-            //RECT rect;
-            //GetClientRect(hDrawWindow, &rect);
-            //co_cout << "Left Button: (" << (int)(state.x - rect.left) << ", " << (int)(state.y - rect.top) << ")" << co_endl;
-            //picturebox.MouseDown(hwnd, state.x - rect.left, state.y - rect.top);
             POINT pt;
 			pt.x = state.x;
 			pt.y = state.y;
 #ifndef USE_X68000
             ScreenToClient(hwnd, &pt);
 #endif
-            //co_cout << "Left Button: (" << (int)(pt.x) << ", " << (int)(pt.y) << ")" << co_endl;
-
             if (!picturebox.MouseDown(hwnd, pt.x, pt.y)) {
 				// クリック領域外なら終了
                 return;
@@ -198,31 +155,13 @@ void run(ConOutput& co_cout) {
 #ifdef USE_X68000
         if (is_key_pressed()) {
             int key = key_input();
-            //printf("\rKey Input: %x", key & 0xff);
-            //fflush(stdout);
-            //co_cout << "Key Input: " << (key & 0xff) << co_endl;
             if (key == 'q') {
                 // 'q'キーが押されたら終了
-                //printf("\nExit on 'q' key.\n");
-                //fflush(stdout);
-                //co_cout << "Exit on 'q' key." << co_endl;
                 break;
             }
         }
 #endif
-
-        //// キー入力をチェックして終了
-        //int key = 0;
-        //keysns(&key);
-
-        //if (key)
-        //    break;
     }
-
-#ifdef USE_X68000
-    // キー読み捨て
-    //getchar();
-#endif
 }
 
 void paint(HWND hwnd) {
@@ -255,7 +194,7 @@ bool exec_command(int token_count, char** tokens, ConOutput& co_cout, ConOutput&
     }
     else if (strcmp(result.command, "run") == 0 && token_count == 1) {
         run(co_cout);
-        co_cout << "Done Quit Mouse Input Mode" << co_endl;
+        co_cout << "Done Mouse Input Mode" << co_endl;
         //co_cout << co_endl;
     }
     return true;
