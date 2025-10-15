@@ -21,20 +21,20 @@ private:
     COLORREF xpalette_to_rgb(int c) {
         switch (c) {
         case 0: return RGB(0, 0, 0);       // 黒
-        case 2: return RGB(0, 0, 128);     // 青
-        case 8: return RGB(0, 128, 0);     // 緑
-        case 10: return RGB(0, 128, 128);  // 水色
-        case 4: return RGB(128, 0, 0);     // 赤
-        case 6: return RGB(128, 0, 128);   // 紫
-        case 12: return RGB(128, 128, 0);  // 黄
-        case 14: return RGB(192, 192, 192);// 白
         case 1: return RGB(128, 128, 128); // 灰色
+        case 2: return RGB(0, 0, 128);     // 青
         case 3: return RGB(0, 0, 255);     // 明るい青
-        case 9: return RGB(0, 255, 0);     // 明るい緑
-        case 11: return RGB(0, 255, 255);  // 明るい水色
+        case 4: return RGB(128, 0, 0);     // 赤
         case 5: return RGB(255, 0, 0);     // 明るい赤
+        case 6: return RGB(128, 0, 128);   // 紫
         case 7: return RGB(255, 0, 255);   // 明るい紫
+        case 8: return RGB(0, 128, 0);     // 緑
+        case 9: return RGB(0, 255, 0);     // 明るい緑
+        case 10: return RGB(0, 128, 128);  // 水色
+        case 11: return RGB(0, 255, 255);  // 明るい水色
+        case 12: return RGB(128, 128, 0);  // 黄
         case 13: return RGB(255, 255, 0);  // 明るい黄
+        case 14: return RGB(192, 192, 192);// 白
         case 15: return RGB(255, 255, 255);// 明るい白
         default: return RGB(0, 0, 0);      // 黒（デフォルト）
         }
@@ -46,12 +46,12 @@ public:
 #ifdef USE_X68000
         drawlinex((int)sx, (int)sy, (int)ex, (int)ey, polygon_color);
 #else
-        //HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(polygon_color));
-        //HGDIOBJ hOldPen = SelectObject(hdc, hPen);
-        //MoveToEx(hdc, sx, sy, NULL);
-        //LineTo(hdc, ex, ey);
-        //SelectObject(hdc, hOldPen);
-        //DeleteObject(hPen);
+        HPEN hPen = CreatePen(PS_SOLID, 1, xpalette_to_rgb(polygon_color));
+        HGDIOBJ hOldPen = SelectObject(hdc, hPen);
+        MoveToEx(hdc, sx, sy, NULL);
+        LineTo(hdc, ex, ey);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
 #endif
     }
 
@@ -94,7 +94,6 @@ public:
 
 #ifdef USE_X68000
         wipe();
-        //fillboxx((int)(rect.left), (int)(rect.top), (int)(rect.right - rect.left), (int)(rect.bottom - rect.top), 8);
 #else
         Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
 #endif
@@ -175,14 +174,18 @@ public:
                 double y2 = flist.getY(i + 1);
                 double cx2 = x2 * xsize;
                 double cy2 = y2 * ysize;
+#ifdef USE_X68000
                 Line(hdc, ox + cx1, oy - cy1, ox + cx2, oy - cy2);
+#endif
             }
             else if (cnt >= 3) {
                 double x2 = flist.getX(0);
                 double y2 = flist.getY(0);
                 double cx2 = x2 * xsize;
                 double cy2 = y2 * ysize;
+#ifdef USE_X68000
                 Line(hdc, ox + cx1, oy - cy1, ox + cx2, oy - cy2);
+#endif
             }
         }
 
@@ -234,22 +237,13 @@ public:
         return a;
     }
 
-   // void print(ConOutput& co_cout) {
-   //     int cnt = flist.GetCount();
-   //     for (int i = 0; i < cnt; i++) {
-   //         double x1 = flist.getX(i);
-   //         double y1 = flist.getY(i);
-			//co_cout << i << " = (" << x1 << ", " << y1 << ")" << co_endl;
-   //     }
-   // }
-
 #ifdef USE_X68000
     void InvalidateRect(HWND hWnd, const RECT* lpRect, BOOL bErase) {
         Paint(hWnd);
     }
 #endif
 
-    void MouseDown(HWND hWnd, int x, int y)
+    bool MouseDown(HWND hWnd, int x, int y)
     {
         // クライアント領域のサイズを取得
         RECT rect;
@@ -262,19 +256,22 @@ public:
         long ox = w / 2;
         long oy = h / 2;
         double csize = (ox < oy) ? ox * 0.8 : oy * 0.8;
-        //printf("\nx=%d y=%d w=%d h=%d ox=%d oy=%d csize=%f\n", x, y, w, h, ox, oy, csize);
 
 #ifdef USE_X68000
         x = ox + (x - ox) * 1.5;
 #endif
 
         double r = sqrt((x - ox) * (x - ox) + (y - oy) * (y - oy));
-        //printf("x=%d r=%f\n", x, r);
         if (fabs(r - csize) < 10) {
             flist.AddPoint((x - ox) / r, -(y - oy) / r);
             text = std::to_wstring(getarea());
             InvalidateRect(hWnd, NULL, TRUE);
         }
+        if (fabs(r - csize) > csize / 8) {
+			// クリック領域外のときは終了
+            return false;
+        }
+		return true;
     }
 
     void AddByDeg(HWND hWnd, int deg) {
@@ -293,11 +290,5 @@ public:
         text = std::to_wstring(getarea());
         InvalidateRect(hWnd, NULL, TRUE);
     }
-    //void Divide(HWND hWnd, int n, ConOutput& co_cout) {
-    //    // 指定された個数に分割
-    //    flist.Divide(n, co_cout);
-    //    text = std::to_wstring(getarea());
-    //    InvalidateRect(hWnd, NULL, TRUE);
-    //}
 };
 

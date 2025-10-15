@@ -48,6 +48,7 @@ private:
         // 出力先のウィンドウに文字列を追加
 #ifdef CONSOLE_IO
         printf("%s", str.c_str());
+		fflush(stdout);
 #else
         std::wstring wstr = StringToWstring(str);
         int len = GetWindowTextLength(hOutput);

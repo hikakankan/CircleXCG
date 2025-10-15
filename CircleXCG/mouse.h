@@ -58,6 +58,22 @@ void mspos(int* px, int* py)
     *py = (pos >> 0) & 0xffff;
 }
 
+void keyinp(int* pkey)
+{
+    uint32_t key;
+
+    asm(
+        "moveq  #0, %%d0\n\t" // _B_KEYINP
+        "trap   #15\n\t"
+        "move.l %%d0, %0\n\t"
+        : "=r"(key)
+        :                        // 入力なし
+        : "d0"   // 使用するレジスタ
+    );
+
+    *pkey = key;
+}
+
 void keysns(int* pkey)
 {
     uint32_t key;
