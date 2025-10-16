@@ -138,6 +138,7 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="wintox.h" />
     <ClInclude Include="xdraw.h" />
+    <ClInclude Include="xmouse.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CircleXCG.cpp" />

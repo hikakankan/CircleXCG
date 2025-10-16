@@ -1,111 +1,133 @@
-﻿// IOCSコールをアセンブラで呼び出す
-#include <cstdint>
-void msinit()
+﻿#ifndef USE_X68000
+#include <conio.h>  // _kbhit, _getch
+#endif
+
+typedef struct {
+    int x;
+    int y;
+    bool bl;
+    bool br;
+} MouseState;
+
+#ifndef USE_X68000
+void get_mouse_state(MouseState* state)
 {
-    asm(
-        "moveq  #0x70, %%d0\n\t" // _MS_INIT
-        "trap   #15\n\t"
-        :
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-        );
+    POINT pt; // マウス座標を格納する構造体
+    if (GetCursorPos(&pt)) {
+        state->x = pt.x;
+        state->y = pt.y;
+    }
+    else {
+        state->x = -1;
+        state->y = -1;
+    }
+
+    // マウスボタンの状態を取得
+    state->bl = (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+    state->br = (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
+}
+#else
+// マウスの状態を取得する関数
+void get_mouse_state(MouseState* state)
+{
+    int x, y, x2, y2, bl, br;
+
+    mspos(&x, &y);
+    msstat(&x2, &y2, &bl, &br);
+
+    state->x = x;
+    state->y = y;
+    state->bl = bl != 0;
+    state->br = br != 0;
+}
+#endif
+
+#ifndef USE_X68000
+bool window_or_mouse_init(HWND& hwnd) {
+    // ウィンドウを初期化
+    return true;
+}
+#else
+typedef int HWND; // X68000ではウィンドウは不要なのでダミー定義
+bool window_or_mouse_init(HWND& hwnd) {
+    mouse_init();
+    return true; // X68000ではウィンドウは不要なので常に成功
+}
+#endif
+
+bool is_key_pressed() {
+#ifndef USE_X68000
+    return _kbhit();
+#else
+    int key = 0;
+    keysns(&key);
+    return (key & 0xff) != 0; // キーが押されているかどうかをチェック
+#endif
 }
 
-void mscuron()
-{
-    asm(
-        "moveq  #0x71, %%d0\n\t" // _MS_CURON
-        "trap   #15\n\t"
-        :
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-        );
+int key_input() {
+#ifndef USE_X68000
+    if (_kbhit()) {
+        return _getch(); // キー入力を取得
+    }
+    return 0; // 入力がない場合は0を返す
+#else
+    int key = 0;
+    keyinp(&key); // IOCSコールでキー入力を取得
+    return key & 0xff; // キーコードを返す
+#endif
 }
 
-void msstat(int* px, int* py, int* pbl, int* pbr)
-{
-    uint32_t stat;
+void mouse_recieve(PictureBox& picturebox) {
+    MouseState state;
 
-    asm(
-        "moveq  #0x74, %%d0\n\t" // _MS_GETDT
-        "trap   #15\n\t"
-        "move.l %%d0, %0\n\t"
-        : "=r"(stat)
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-    );
+    HWND hwnd = hDrawWindow; // 描画ウィンドウのハンドルを使用
+    if (!window_or_mouse_init(hwnd)) {
+        // ウィンドウの初期化に失敗した場合は終了
+        return;
+    }
 
-    *px = (stat >> 24) & 0xff;
-    *py = (stat >> 16) & 0xff;
-    *pbl = (stat >> 8) & 0xff;
-    *pbr = (stat >> 0) & 0xff;
-}
+    while (true) {
+#ifndef USE_X68000
+        MSG msg;
+        // メッセージがあれば処理
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT) {
+                return;
+            }
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+#endif
 
-void mspos(int* px, int* py)
-{
-    uint32_t pos;
+        get_mouse_state(&state);
 
-    asm(
-        "moveq  #0x75, %%d0\n\t" // _MS_CURGT
-        "trap   #15\n\t"
-        "move.l %%d0, %0\n\t"
-        : "=r"(pos)
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-    );
+        if (state.bl) {
+            POINT pt;
+            pt.x = state.x;
+            pt.y = state.y;
+#ifndef USE_X68000
+            ScreenToClient(hwnd, &pt);
+#endif
+            if (!picturebox.MouseDown(hwnd, pt.x, pt.y)) {
+                // クリック領域外なら終了
+                return;
+            }
+        }
 
-    *px = (pos >> 16) & 0xffff;
-    *py = (pos >> 0) & 0xffff;
-}
+#ifndef USE_X68000
+        // CPU負荷を減らすために少し待つ
+        Sleep(50);
+#endif
 
-void keyinp(int* pkey)
-{
-    uint32_t key;
-
-    asm(
-        "moveq  #0, %%d0\n\t" // _B_KEYINP
-        "trap   #15\n\t"
-        "move.l %%d0, %0\n\t"
-        : "=r"(key)
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-    );
-
-    *pkey = key;
-}
-
-void keysns(int* pkey)
-{
-    uint32_t key;
-
-    asm(
-        "moveq  #1, %%d0\n\t" // _B_KEYSNS
-        "trap   #15\n\t"
-        "move.l %%d0, %0\n\t"
-        : "=r"(key)
-        :                        // 入力なし
-        : "d0"   // 使用するレジスタ
-    );
-
-    *pkey = key;
-}
-
-// ソフトウェアキーボード消去
-void skeymod_off()
-{
-    asm(
-        "moveq  #0x7d, %%d0\n\t" // _SKEY_MOD
-        "moveq  #0, %%d1\n\t"
-        "trap   #15\n\t"
-        :
-        :                        // 入力なし
-        : "d0", "d1"   // 使用するレジスタ
-        );
-}
-
-void mouse_init()
-{
-    msinit();
-    mscuron();
-    skeymod_off();
+#ifdef USE_X68000
+        if (is_key_pressed()) {
+            int key = key_input();
+            if (key == 'q') {
+                // 'q'キーが押されたら終了
+                break;
+            }
+        }
+#endif
+    }
 }
