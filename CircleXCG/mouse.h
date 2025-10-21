@@ -78,7 +78,7 @@ int key_input() {
 #endif
 }
 
-void mouse_recieve(PictureBox& picturebox) {
+void mouse_recieve(PictureBox& picturebox, ConOutput& co_cout) {
     MouseState state;
 
     HWND hwnd = hDrawWindow; // 描画ウィンドウのハンドルを使用
@@ -112,6 +112,10 @@ void mouse_recieve(PictureBox& picturebox) {
             if (!picturebox.MouseDown(hwnd, pt.x, pt.y)) {
                 // クリック領域外なら終了
                 return;
+            }
+            if (picturebox.is_number_text_changed()) {
+                std::string result = picturebox.get_number_text();
+                co_cout << "Area: " << result << co_endl;
             }
         }
 

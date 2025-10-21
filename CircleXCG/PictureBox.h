@@ -8,36 +8,52 @@
 #include "xdraw.h"
 #endif
 
+#include "drawdigit.h"
+
+COLORREF xpalette_to_rgb(int c) {
+    switch (c) {
+    case 0: return RGB(0, 0, 0);       // 黒
+    case 1: return RGB(128, 128, 128); // 灰色
+    case 2: return RGB(0, 0, 128);     // 青
+    case 3: return RGB(0, 0, 255);     // 明るい青
+    case 4: return RGB(128, 0, 0);     // 赤
+    case 5: return RGB(255, 0, 0);     // 明るい赤
+    case 6: return RGB(128, 0, 128);   // 紫
+    case 7: return RGB(255, 0, 255);   // 明るい紫
+    case 8: return RGB(0, 128, 0);     // 緑
+    case 9: return RGB(0, 255, 0);     // 明るい緑
+    case 10: return RGB(0, 128, 128);  // 水色
+    case 11: return RGB(0, 255, 255);  // 明るい水色
+    case 12: return RGB(128, 128, 0);  // 黄
+    case 13: return RGB(255, 255, 0);  // 明るい黄
+    case 14: return RGB(192, 192, 192);// 白
+    case 15: return RGB(255, 255, 255);// 明るい白
+    default: return RGB(0, 0, 0);      // 黒（デフォルト）
+    }
+}
+
 class PictureBox
 {
 private:
     int p_r = 3;
     ClassFigureList flist;
-    std::wstring text;
+    std::string number_text;
+    std::string number_text_old;
+    int text_color = 3;
     int circle_color = 9;
     int point_color = 7;
     int polygon_color = 11;
 
-    COLORREF xpalette_to_rgb(int c) {
-        switch (c) {
-        case 0: return RGB(0, 0, 0);       // 黒
-        case 1: return RGB(128, 128, 128); // 灰色
-        case 2: return RGB(0, 0, 128);     // 青
-        case 3: return RGB(0, 0, 255);     // 明るい青
-        case 4: return RGB(128, 0, 0);     // 赤
-        case 5: return RGB(255, 0, 0);     // 明るい赤
-        case 6: return RGB(128, 0, 128);   // 紫
-        case 7: return RGB(255, 0, 255);   // 明るい紫
-        case 8: return RGB(0, 128, 0);     // 緑
-        case 9: return RGB(0, 255, 0);     // 明るい緑
-        case 10: return RGB(0, 128, 128);  // 水色
-        case 11: return RGB(0, 255, 255);  // 明るい水色
-        case 12: return RGB(128, 128, 0);  // 黄
-        case 13: return RGB(255, 255, 0);  // 明るい黄
-        case 14: return RGB(192, 192, 192);// 白
-        case 15: return RGB(255, 255, 255);// 明るい白
-        default: return RGB(0, 0, 0);      // 黒（デフォルト）
-        }
+public:
+    std::string get_number_text() {
+        return number_text;
+    }
+    void set_number_text(std::string text) {
+        number_text_old = number_text;
+        number_text = text;
+	}
+    bool is_number_text_changed() {
+        return number_text != number_text_old;
 	}
 
 public:
@@ -121,6 +137,11 @@ public:
 #endif
     }
 
+    void DrawText(HDC hdc, std::string text, int x, int y, int w, int h, int color) {
+		//std::string text = WstringToString(wtext);
+		draw_num_str2(hdc, text.c_str(), x, y, w, h, color);
+    }
+
     void Paint(HWND hWnd)
     {
         // クライアント領域のサイズを取得
@@ -202,9 +223,10 @@ public:
         }
 
         // テキストの描画
-        SetTextColor(hdc, RGB(0, 0, 0));
-        SetBkMode(hdc, TRANSPARENT); // 背景を透明に
-        TextOut(hdc, 10, 10, text.c_str(), wcslen(text.c_str()));
+        //SetTextColor(hdc, RGB(0, 0, 0));
+        //SetBkMode(hdc, TRANSPARENT); // 背景を透明に
+        //TextOut(hdc, 10, 10, text.c_str(), wcslen(text.c_str()));
+        DrawText(hdc, get_number_text(), 10, 10, 16, 32, text_color);
 
         // リソースの解放
         DeleteObject(hPen);
@@ -264,7 +286,7 @@ public:
         double r = sqrt((x - ox) * (x - ox) + (y - oy) * (y - oy));
         if (fabs(r - csize) < 10) {
             flist.AddPoint((x - ox) / r, -(y - oy) / r);
-            text = std::to_wstring(getarea());
+            set_number_text(std::to_string(getarea()));
             InvalidateRect(hWnd, NULL, TRUE);
         }
         if (fabs(r - csize) > csize / 8) {
@@ -280,14 +302,14 @@ public:
         double x = cos(rad);
         double y = sin(rad);
         flist.AddPoint(x, y);
-        text = std::to_wstring(getarea());
+        set_number_text(std::to_string(getarea()));
         InvalidateRect(hWnd, NULL, TRUE);
     }
 
     void Divide(HWND hWnd, int n) {
         // 指定された個数に分割
         flist.Divide(n);
-        text = std::to_wstring(getarea());
+        set_number_text(std::to_string(getarea()));
         InvalidateRect(hWnd, NULL, TRUE);
     }
 };

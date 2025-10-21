@@ -33,7 +33,7 @@ PictureBox picturebox; // PictureBoxのインスタンス
 void run(ConOutput& co_cout) {
     co_cout << "Mouse Input Mode. Click inside the drawing area. Click out of click area to quit." << co_endl;
 
-	mouse_recieve(picturebox);
+	mouse_recieve(picturebox, co_cout);
 }
 
 void paint(HWND hwnd) {

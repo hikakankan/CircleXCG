@@ -131,6 +131,7 @@
     <ClInclude Include="DNString.h" />
     <ClInclude Include="DotNetControl.h" />
     <ClInclude Include="drawasm.h" />
+    <ClInclude Include="drawdigit.h" />
     <ClInclude Include="form.h" />
     <ClInclude Include="mouse.h" />
     <ClInclude Include="PictureBox.h" />
